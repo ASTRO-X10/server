@@ -1,34 +1,45 @@
+import fs from 'fs-extra';
 import express from 'express';
+import multer from 'multer';
 import path from 'path';
 import File from './models/File.js';
 import { randomBytes } from 'crypto';
 import { zipFolder } from './utils/zip.js';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
 
 function generateAccessKey() {
 	return `xstro_md_${String(randomBytes(1).readUInt8(0)).padStart(2, '0')}_${String(randomBytes(1).readUInt8(0)).padStart(2, '0')}_${String(randomBytes(1).readUInt8(0)).padStart(2, '0')}`;
 }
 
-app.post('/upload', async (req, res) => {
-	const folderPath = req.body.folderPath;
+app.post('/upload', upload.array('files'), async (req, res) => {
 	const accessKey = generateAccessKey();
-	const zipFilePath = path.join(__dirname, `uploads/${accessKey}.zip`);
+	const tempDir = path.join(__dirname, 'temp', accessKey);
+	fs.mkdirSync(tempDir, { recursive: true });
 
-	await zipFolder(folderPath, zipFilePath);
-	await File.create({ accessKey, filePath: zipFilePath });
+	req.files.forEach(file => {
+		fs.writeFileSync(path.join(tempDir, file.originalname), file.buffer);
+	});
 
-	res.json({ accessKey });
-});
+	const zipFilePath = path.join(__dirname, 'uploads', `${accessKey}.zip`);
 
-app.get('/download/:accessKey', async (req, res) => {
-	const fileRecord = await File.findOne({ where: { accessKey: req.params.accessKey } });
-
-	if (fileRecord) {
-		res.download(fileRecord.filePath);
-	} else {
-		res.status(404).send('File not found.');
+	try {
+		await zipFolder(tempDir, zipFilePath);
+		await File.create({ accessKey, filePath: zipFilePath });
+		fs.rmdirSync(tempDir, { recursive: true });
+		res.json({ accessKey });
+	} catch (error) {
+		console.error('Error during upload:', error);
+		res.status(500).send('Failed to upload folder.');
 	}
 });
 

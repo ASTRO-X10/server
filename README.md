@@ -15,11 +15,18 @@ This is a simple Express server that allows users to upload `.zip` files and ret
 ```javascript
 import axios from 'axios';
 import fs from 'fs';
+import path from 'path';
 import FormData from 'form-data';
 
 const uploadFolder = async folderPath => {
 	const form = new FormData();
-	form.append('folderPath', fs.createReadStream(folderPath));
+	const files = fs.readdirSync(folderPath);
+
+	for (const file of files) {
+		const filePath = path.join(folderPath, file);
+		const fileBuffer = fs.readFileSync(filePath);
+		form.append('files', fileBuffer, { filename: file });
+	}
 
 	try {
 		const response = await axios.post('http://localhost:5000/upload', form, {
@@ -33,7 +40,7 @@ const uploadFolder = async folderPath => {
 	}
 };
 
-uploadFolder('./myfolder');
+uploadFolder('./folder');
 ```
 
 #### DOWNLOAD WITH ACCESS KEY
@@ -75,4 +82,5 @@ const accessKey = 'xstro_md_XX_XX_XX';
 const extractPath = 'path/to/extract/folder';
 downloadAndExtract(accessKey, extractPath);
 ```
+
 ### MADE BY ASTRO

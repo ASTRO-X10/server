@@ -51,36 +51,28 @@ import fs from 'fs';
 import unzipper from 'unzipper';
 import path from 'path';
 
-const downloadAndExtract = async (accessKey, extractPath) => {
-	try {
-		const response = await axios.get(`http://localhost:5000/download/${accessKey}`, {
-			responseType: 'stream',
-		});
+async function downloadAndExtract(accessKey) {
+	const zipFilePath = path.join('./dl', `${accessKey}.zip`);
+	fs.mkdirSync('./dl', { recursive: true });
 
-		const zipFilePath = path.join(extractPath, `${accessKey}.zip`);
-		const writer = fs.createWriteStream(zipFilePath);
-		response.data.pipe(writer);
+	const response = await axios.get(`http://localhost:5000/download/${accessKey}`, { responseType: 'stream' });
+	const writer = fs.createWriteStream(zipFilePath);
 
-		writer.on('finish', () => {
-			fs.createReadStream(zipFilePath)
-				.pipe(unzipper.Extract({ path: extractPath }))
-				.on('close', () => {
-					console.log(`Files Extracted to: ${extractPath}`);
-					fs.unlinkSync(zipFilePath);
-				});
-		});
+	response.data.pipe(writer);
+	await new Promise((resolve, reject) => {
+		writer.on('finish', resolve);
+		writer.on('error', reject);
+	});
 
-		writer.on('error', err => {
-			console.error('Error writing file:', err.message);
-		});
-	} catch (error) {
-		console.error('Error downloading file:', error.message);
-	}
-};
+	await fs
+		.createReadStream(zipFilePath)
+		.pipe(unzipper.Extract({ path: './dl' }))
+		.promise();
+	fs.unlinkSync(zipFilePath);
+	console.log(`operation success`);
+}
 
-const accessKey = 'xstro_md_XX_XX_XX';
-const extractPath = 'path/to/extract/folder';
-downloadAndExtract(accessKey, extractPath);
+downloadAndExtract('xstro_md_46_85_71');
 ```
 
 ### MADE BY ASTRO

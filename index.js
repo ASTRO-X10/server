@@ -43,6 +43,24 @@ app.post('/upload', upload.array('files'), async (req, res) => {
 	}
 });
 
+app.get('/download/:accessKey', async (req, res) => {
+	const { accessKey } = req.params;
+	const fileRecord = await File.findOne({ where: { accessKey } });
+
+	if (!fileRecord) {
+		return res.status(404).send('File not found.');
+	}
+
+	const zipFilePath = fileRecord.filePath;
+
+	res.download(zipFilePath, err => {
+		if (err) {
+			console.error('Error downloading file:', err);
+			res.status(500).send('Failed to download file.');
+		}
+	});
+});
+
 app.listen(PORT, () => {
 	console.log(`Server is running on http://localhost:${PORT}`);
 });

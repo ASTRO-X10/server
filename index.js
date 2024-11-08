@@ -22,7 +22,12 @@ function generateAccessKey() {
 }
 
 app.post('/upload', upload.array('files'), async (req, res) => {
-	const accessKey = generateAccessKey();
+	const accessKey = req.body.accessKey || generateAccessKey();
+	const accessKeyPattern = /^xstro_md_\d{2}_\d{2}_\d{2}$/;
+	if (req.body.accessKey && !accessKeyPattern.test(req.body.accessKey)) {
+		return res.status(400).json({ error: 'Invalid accessKey format.' });
+	}
+
 	const tempDir = path.join(__dirname, 'temp', accessKey);
 	fs.mkdirSync(tempDir, { recursive: true });
 
